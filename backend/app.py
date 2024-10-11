@@ -232,7 +232,7 @@ def add_pet_weight(pet_id):
         if not weight or not date_recorded:
             return jsonify({'message': 'Vui lòng điền đầy đủ thông tin'}), 400
 
-        with mysql.connection.cursor() as cursor:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
             cursor.execute('INSERT INTO pet_weight (pet_id, user_id, weight, date_recorded) VALUES (%s, %s, %s, %s)',
                            (pet_id, session['id'], weight, date_recorded))
             mysql.connection.commit()
@@ -256,7 +256,7 @@ def add_pet_weight(pet_id):
 @login_required
 def delete_pet_weight(pet_id, weight_id):
     try:
-        with mysql.connection.cursor() as cursor:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
             # Xóa bản ghi cân nặng
             cursor.execute('DELETE FROM pet_weight WHERE id = %s AND pet_id = %s AND user_id = %s', (weight_id, pet_id, session['id']))
             mysql.connection.commit()
@@ -272,6 +272,108 @@ def delete_pet_weight(pet_id, weight_id):
         return jsonify(pet), 200
     except Exception as e:
         print(f"Lỗi xóa cân nặng cho thú cưng: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/pets/<int:pet_id>/vaccines', methods=['POST'])
+@login_required
+def add_pet_vaccine(pet_id):
+    try:
+        vaccine_name = request.form.get('vaccine_name')
+        dosage = request.form.get('dosage')
+        date_administered = request.form.get('date_administered')
+
+        if not vaccine_name or not dosage or not date_administered:
+            return jsonify({'message': 'Vui lòng điền đầy đủ thông tin'}), 400
+
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('INSERT INTO pet_vaccines (pet_id, user_id, vaccine_name, dosage, date_administered) VALUES (%s, %s, %s, %s, %s)',
+                           (pet_id, session['id'], vaccine_name, dosage, date_administered))
+            mysql.connection.commit()
+
+            # Lấy lại thông tin thú cưng (bao gồm cả vắc xin mới)
+            cursor.execute('SELECT * FROM pets WHERE id = %s AND user_id = %s', (pet_id, session['id']))
+            pet = cursor.fetchone()
+            if not pet:
+                return jsonify({'message': 'Không tìm thấy thú cưng'}), 404
+            cursor.execute('SELECT * FROM pet_vaccines WHERE pet_id = %s', (pet_id,))
+            pet['vaccines'] = cursor.fetchall()
+
+        return jsonify(pet), 201
+    except Exception as e:
+        print(f"Lỗi thêm vắc xin: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+
+@app.route('/api/pets/<int:pet_id>/vaccines/<int:vaccine_id>', methods=['DELETE'])
+@login_required
+def delete_pet_vaccine(pet_id, vaccine_id):
+    try:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('DELETE FROM pet_vaccines WHERE id = %s AND pet_id = %s AND user_id = %s', (vaccine_id, pet_id, session['id']))
+            mysql.connection.commit()
+
+            # Lấy lại thông tin thú cưng (bao gồm cả danh sách vắc xin đã cập nhật)
+            cursor.execute('SELECT * FROM pets WHERE id = %s AND user_id = %s', (pet_id, session['id']))
+            pet = cursor.fetchone()
+            if not pet:
+                return jsonify({'message': 'Không tìm thấy thú cưng'}), 404
+            cursor.execute('SELECT * FROM pet_vaccines WHERE pet_id = %s', (pet_id,))
+            pet['vaccines'] = cursor.fetchall()
+
+        return jsonify(pet), 200
+    except Exception as e:
+        print(f"Lỗi xóa vắc xin: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/pets/<int:pet_id>/medications', methods=['POST'])
+@login_required
+def add_pet_medication(pet_id):
+    try:
+        medication_name = request.form.get('medication_name')
+        dosage = request.form.get('dosage')
+        date_administered = request.form.get('date_administered')
+
+        if not medication_name or not dosage or not date_administered:
+            return jsonify({'message': 'Vui lòng điền đầy đủ thông tin'}), 400
+
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('INSERT INTO pet_medications (pet_id, user_id, medication_name, dosage, date_administered) VALUES (%s, %s, %s, %s, %s)',
+                           (pet_id, session['id'], medication_name, dosage, date_administered))
+            mysql.connection.commit()
+
+            # Lấy lại thông tin thú cưng (bao gồm cả thuốc mới)
+            cursor.execute('SELECT * FROM pets WHERE id = %s AND user_id = %s', (pet_id, session['id']))
+            pet = cursor.fetchone()
+            if not pet:
+                return jsonify({'message': 'Không tìm thấy thú cưng'}), 404
+            cursor.execute('SELECT * FROM pet_medications WHERE pet_id = %s', (pet_id,))
+            pet['medications'] = cursor.fetchall()
+
+        return jsonify(pet), 201
+    except Exception as e:
+        print(f"Lỗi thêm thuốc: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+
+@app.route('/api/pets/<int:pet_id>/medications/<int:medication_id>', methods=['DELETE'])
+@login_required
+def delete_pet_medication(pet_id, medication_id):
+    try:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('DELETE FROM pet_medications WHERE id = %s AND pet_id = %s AND user_id = %s', (medication_id, pet_id, session['id']))
+            mysql.connection.commit()
+
+            # Lấy lại thông tin thú cưng (bao gồm cả danh sách thuốc đã cập nhật)
+            cursor.execute('SELECT * FROM pets WHERE id = %s AND user_id = %s', (pet_id, session['id']))
+            pet = cursor.fetchone()
+            if not pet:
+                return jsonify({'message': 'Không tìm thấy thú cưng'}), 404
+            cursor.execute('SELECT * FROM pet_medications WHERE pet_id = %s', (pet_id,))
+            pet['medications'] = cursor.fetchall()
+
+        return jsonify(pet), 200
+    except Exception as e:
+        print(f"Lỗi xóa thuốc: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
 if __name__ == '__main__':

@@ -1,32 +1,30 @@
-//DeleteWeight.jsx
-import {Button, useToast} from '@chakra-ui/react';
+import { IconButton, useToast } from '@chakra-ui/react';
+import { DeleteIcon } from '@chakra-ui/icons';
 
-const DeleteWeight = ({ petId, weightId, setPet }) => {
+const DeleteMedication = ({ petId, medicationId, setPet }) => {
     const toast = useToast();
 
     const handleDelete = async () => {
         try {
-            const response = await fetch(`/api/pets/${petId}/weight/${weightId}`, {
+            const response = await fetch(`/api/pets/${petId}/medications/${medicationId}`, {
                 method: 'DELETE',
             });
 
             if (response.ok) {
-                // Cập nhật danh sách cân nặng sau khi xóa thành công
                 const updatedPet = await response.json();
                 setPet(updatedPet);
 
                 toast({
-                    title: 'Xóa cân nặng thành công!',
+                    title: 'Xóa thuốc thành công!',
                     status: 'success',
                     duration: 3000,
                     isClosable: true,
                 });
             } else {
-                // Xử lý lỗi
-                console.error('Lỗi khi xóa cân nặng');
+                console.error('Lỗi khi xóa thuốc');
                 toast({
                     title: 'Lỗi!',
-                    description: 'Lỗi khi xóa cân nặng',
+                    description: 'Lỗi khi xóa thuốc',
                     status: 'error',
                     duration: 3000,
                     isClosable: true,
@@ -45,10 +43,14 @@ const DeleteWeight = ({ petId, weightId, setPet }) => {
     };
 
     return (
-        <Button onClick={handleDelete} ml={4} size="sm" colorScheme="red">
-            Delete
-        </Button>
+        <IconButton
+            aria-label="Delete Medication"
+            icon={<DeleteIcon />}
+            onClick={handleDelete}
+            colorScheme="red"
+            size="sm"
+        />
     );
 };
 
-export default DeleteWeight;
+export default DeleteMedication;

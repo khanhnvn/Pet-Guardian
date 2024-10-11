@@ -76,4 +76,4 @@ CREATE TABLE IF NOT EXISTS pet_allergies (
     FOREIGN KEY (user_id) REFERENCES accounts(id) ON DELETE CASCADE 
 );
 
-select * from accounts;
+select * from pet_weight;

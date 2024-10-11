@@ -1,3 +1,4 @@
+//AddWeight.jsx
 import { useState } from 'react';
 import {
     FormControl,
@@ -7,7 +8,7 @@ import {
     useToast,
 } from '@chakra-ui/react';
 
-const AddWeight = ({ petId, setPet }) => {
+const AddWeight = ({ petId, setPet, onRefresh }) => {
     const toast = useToast();
     const [weight, setWeight] = useState('');
     const [dateRecorded, setDateRecorded] = useState('');
@@ -30,6 +31,7 @@ const AddWeight = ({ petId, setPet }) => {
                 const updatedPet = await response.json();
                 setPet(updatedPet);
 
+                onRefresh();
                 // Reset form
                 setWeight('');
                 setDateRecorded('');
