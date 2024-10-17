@@ -29,6 +29,8 @@ import AddVaccine from "./components/AddVaccine.jsx";
 import DeleteVaccine from "./components/DeleteVaccine.jsx";
 import AddMedication from "./components/AddMedication.jsx";
 import DeleteMedication from "./components/DeleteMedication.jsx";
+import AddAllergy from './components/AddAllergy.jsx';
+import DeleteAllergy from './components/DeleteAllergy.jsx';
 
 const PetHealthDetail = () => {
     const { petId } = useParams();
@@ -130,16 +132,15 @@ const PetHealthDetail = () => {
                                                     <Table variant="simple">
                                                         <Thead>
                                                             <Tr>
-                                                                <Th>Date</Th>
                                                                 <Th>Weight (kg)</Th>
-
+                                                                <Th>Date</Th>
                                                             </Tr>
                                                         </Thead>
                                                         <Tbody>
                                                             {pet?.weights?.map((weight) => (
                                                                 <Tr key={weight.id}>
-                                                                    <Td>{formatDate(weight.date_recorded)}</Td>
                                                                     <Td>{weight.weight}</Td>
+                                                                    <Td>{formatDate(weight.date_recorded)}</Td>
                                                                     <Td>
                                                                         <DeleteWeight petId={petId} weightId={weight.id} setPet={setPet} />
                                                                     </Td>
@@ -218,29 +219,39 @@ const PetHealthDetail = () => {
                                                 </Box>
                                             </HStack>
                                         </TabPanel>
-
+                                        {/* allergy */}                                
                                         <TabPanel>
-                                            <Heading as="h3" size="md" mb={2}>
-                                                Allergy Records
-                                            </Heading>
-                                            <Table variant="simple">
-                                                <Thead>
-                                                    <Tr>
-                                                        <Th>Allergy</Th>
-                                                        <Th>Cause</Th>
-                                                        <Th>Symptoms</Th>
-                                                    </Tr>
-                                                </Thead>
-                                                <Tbody>
-                                                    {pet?.allergies?.map((allergy) => (
-                                                        <Tr key={allergy.id}>
-                                                            <Td>{allergy.allergy}</Td>
-                                                            <Td>{allergy.cause}</Td>
-                                                            <Td>{allergy.symptoms}</Td>
-                                                        </Tr>
-                                                    ))}
-                                                </Tbody>
-                                            </Table>
+                                            <HStack spacing={4}>
+                                                <Box width="30%">
+                                                    <AddAllergy petId={petId} setPet={setPet} onRefresh={handleRefresh} /> {/* Truyền handleRefresh cho AddAllergy */}
+                                                </Box>
+                                                <Box flex="2">
+                                                    <Heading as="h3" size="md" mb={2}>
+                                                        Allergy Records
+                                                    </Heading>
+                                                    <Table variant="simple">
+                                                        <Thead>
+                                                            <Tr>
+                                                                <Th>Allergy</Th>
+                                                                <Th>Cause</Th>
+                                                                <Th>Symptoms</Th>
+                                                            </Tr>
+                                                        </Thead>
+                                                        <Tbody>
+                                                            {pet?.allergies?.map((allergy) => (
+                                                                <Tr key={allergy.id}>
+                                                                    <Td>{allergy.allergy}</Td>
+                                                                    <Td>{allergy.cause}</Td>
+                                                                    <Td>{allergy.symptoms}</Td>
+                                                                    <Td>
+                                                                        <DeleteAllergy petId={petId} allergyId={allergy.id} setPet={setPet} onRefresh={handleRefresh} /> {/* Truyền handleRefresh cho DeleteAllergy */}
+                                                                    </Td>
+                                                                </Tr>
+                                                            ))}
+                                                        </Tbody>
+                                                    </Table>
+                                                </Box>
+                                            </HStack>
                                         </TabPanel>
                                     </TabPanels>
                                 </Tabs>

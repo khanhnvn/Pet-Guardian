@@ -8,6 +8,9 @@ import Product from './pages/Product.jsx'
 import Reminder from "./pages/Reminder.jsx";
 import VetInfo from "./pages/VetInfo.jsx";
 import PetHealthDetail from "./pages/PetHealthDetail.jsx";
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import ChangePassword from './pages/ChangePassword.jsx';
+
 
 function App() {
   return (
@@ -20,6 +23,9 @@ function App() {
         <Route path="/reminder" element={<Reminder />} />
         <Route path="/vet" element={<VetInfo />} />
         <Route path="/Product" element={<Product />} />
+        <Route path="/vet" element={<VetInfo />} />
+        <Route path="/forgotpassword" element={<ForgotPassword />} />
+        <Route path="/changepassword" element={<ChangePassword />} />
         <Route path="/pet/:petId/health" element={<PetHealthDetail />} />
       </Routes>
     </BrowserRouter>

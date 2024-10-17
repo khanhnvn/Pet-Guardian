@@ -21,7 +21,8 @@ const Register = () => {
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [userType, setUserType] = useState('user'); 
+    const [roleId, setRoleId] = useState(1); // Thêm state cho role_id
+
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -36,7 +37,7 @@ const Register = () => {
                     username: username, 
                     password: password, 
                     email: email, 
-                    user_type: userType 
+                    role_id: roleId 
                 }),
             });
 
@@ -123,14 +124,14 @@ const Register = () => {
                         />
 
                         <RadioGroup
-                            defaultValue="user"
+                            defaultValue={1}
                             mt={4}
-                            value={userType}
-                            onChange={setUserType}
+                            value={roleId}
+                            onChange={(e) => setRoleId(parseInt(e.target.value, 10))}
                         >
                             <Flex gap={10} fontSize="lg">
-                                <Radio value="user">Customer</Radio>
-                                <Radio value="customer">Shop</Radio>
+                                <Radio value={1}>user</Radio>
+                                <Radio value={3}>customer</Radio>
                             </Flex>
                         </RadioGroup>
 

@@ -8,9 +8,9 @@ import {
     Text, Image, useToast, Flex
 } from "@chakra-ui/react";
 
-import PasswordInput from './components/PasswordInput';
 import {useNavigate} from "react-router-dom";
 import {useState} from "react";
+import PasswordInput from "./components/PasswordInput";
 
 const Login = () => {
     const toast = useToast();
@@ -35,7 +35,7 @@ const Login = () => {
             if (response.ok) {
                 const data = await response.json();
 
-                const userType = data.user_type;
+                const roleId = data.role_id;
 
                 toast({
                     title: 'Đăng nhập thành công!',
@@ -44,10 +44,12 @@ const Login = () => {
                     isClosable: true,
                 });
 
-                if (userType === 'user') {
+                if (roleId === 1) {
                     navigate('/homepage');
-                } else if (userType === 'customer') {
+                } else if (roleId === 3) {
                     navigate('/customerhomepage');
+                } else if (roleId === 2) {
+                    navigate('/adminhomepage')
                 }
 
             } else {
@@ -132,7 +134,7 @@ const Login = () => {
                             Sign Up
                         </Button>
 
-                        <Link fontSize="larger"> Forgot password?</Link>
+                        <Link fontSize="larger" onClick={() => navigate('/forgotpassword')}> Forgot password?</Link>
 
                     </Stack>
                 </form>
