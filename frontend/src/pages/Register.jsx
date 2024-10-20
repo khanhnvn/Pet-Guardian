@@ -127,7 +127,7 @@ const Register = () => {
                             defaultValue={1}
                             mt={4}
                             value={roleId}
-                            onChange={(e) => setRoleId(parseInt(e.target.value, 10))}
+                            onChange={(value) => setRoleId(parseInt(value, 10))}
                         >
                             <Flex gap={10} fontSize="lg">
                                 <Radio value={1}>user</Radio>

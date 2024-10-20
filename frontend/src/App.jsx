@@ -10,6 +10,12 @@ import VetInfo from "./pages/VetInfo.jsx";
 import PetHealthDetail from "./pages/PetHealthDetail.jsx";
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ChangePassword from './pages/ChangePassword.jsx';
+import CustomerHomePage from './pages/CustomerHomepage.jsx'; 
+import AdminHomePage from './pages/AdminHomepage.jsx'; 
+import MyProduct from './pages/MyProduct.jsx';
+import MyService from './pages/MyService.jsx';
+import AdminProducts from './pages/AdminProduct.jsx'; 
+import AdminServices from './pages/AdminService.jsx';
 
 
 function App() {
@@ -27,6 +33,12 @@ function App() {
         <Route path="/forgotpassword" element={<ForgotPassword />} />
         <Route path="/changepassword" element={<ChangePassword />} />
         <Route path="/pet/:petId/health" element={<PetHealthDetail />} />
+        <Route path="/customerhomepage" element={<CustomerHomePage />} />
+        <Route path="/adminhomepage" element={<AdminHomePage />} />
+        <Route path="/myproduct" element={<MyProduct />} /> 
+        <Route path="/myservice" element={<MyService />} />
+        <Route path="/admin/allproducts" element={<AdminProducts />} />
+        <Route path="/admin/allservices" element={<AdminServices />} />
       </Routes>
     </BrowserRouter>
   );

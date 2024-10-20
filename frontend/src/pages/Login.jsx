@@ -44,6 +44,13 @@ const Login = () => {
                     isClosable: true,
                 });
 
+                // Lưu thông tin người dùng vào localStorage
+                localStorage.setItem('user', JSON.stringify({ 
+                    id: data.id, 
+                    email: email, 
+                    role_id: data.role_id 
+                }));
+
                 if (roleId === 1) {
                     navigate('/homepage');
                 } else if (roleId === 3) {
