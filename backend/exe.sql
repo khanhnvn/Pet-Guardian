@@ -197,3 +197,44 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
 (3, 2),
 (3, 5),
 (3, 6);
+
+ALTER TABLE `products`
+ADD COLUMN `views` INT DEFAULT 0,
+ADD COLUMN `sales` INT DEFAULT 0;
+
+ALTER TABLE `services`
+ADD COLUMN `views` INT DEFAULT 0,
+ADD COLUMN `sales` INT DEFAULT 0;
+
+CREATE TABLE customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    account_id INT UNIQUE, -- Liên kết với bảng accounts
+    phone VARCHAR(20),
+    address TEXT,
+    description TEXT,
+    total_views INT DEFAULT 0,
+    total_purchases INT DEFAULT 0,
+    FOREIGN KEY (account_id) REFERENCES accounts(id)
+);
+
+CREATE TABLE product_images (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT,
+    image_url VARCHAR(255) NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+alter table `products`
+ADD COLUMN `status` VARCHAR(50) DEFAULT 'available'
+
+ALTER TABLE product_images ADD COLUMN is_main BOOLEAN DEFAULT FALSE;
+
+CREATE TABLE cart (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    product_id INT,
+    quantity INT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES accounts(id),
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);

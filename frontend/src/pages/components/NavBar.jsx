@@ -10,7 +10,7 @@ import {
     Menu,
     MenuButton,
     MenuList,
-    MenuItem,
+    MenuItem, IconButton,
 } from '@chakra-ui/react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
@@ -62,6 +62,9 @@ const Navbar = () => {
                                 </NavLink>
                                 <NavLink to="/reminder">
                                     <Tab _selected={{ color: 'blue.500' }}>Reminder</Tab>
+                                </NavLink>
+                                <NavLink to="/cart">
+                                    <Tab _selected={{ color: 'blue.500' }}>Cart</Tab>
                                 </NavLink>
                             </TabList>
                         </Tabs>

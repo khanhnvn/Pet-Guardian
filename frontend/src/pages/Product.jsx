@@ -1,44 +1,23 @@
-import {
-    Box,
-    Button,
-    Container,
-    Flex,
-    Heading,
-    Image,
-    Spacer,
-    Tabs,
-    TabList,
-    Tab,
-    TabPanels,
-    TabPanel,
-    Text,
-    VStack,
-} from '@chakra-ui/react';
-import Navbar from "./components/NavBar.jsx";
-import Footer from "./components/Footer.jsx";
+import { Box, Container, Heading } from '@chakra-ui/react';
+import Navbar from "./components/NavBar";
+import Footer from "./components/Footer";
+import ProductGrid from "./components/ProductGrid";
+import useProduct from "./useProduct";
 
-const Product = () => {
+const Product = ({ fetchCart, cart, setCart }) => {
+    const { products, handleAddToCart } = useProduct();
+
     return (
-        <Box bg="#FFFCF8" minHeight="100vh"
-             display="flex" flexDirection="column"
-        > {/* Đặt màu nền cho trang */}
-            {/* Navigation Bar */}
+        <Box bg="#FFFCF8" minHeight="100vh" display="flex" flexDirection="column">
             <Navbar />
-
-            {/* Body */}
             <Box flex={1}>
-                <Container maxW="container.lg" p={4} flex={1}>
-                    <VStack spacing={4} alignItems="flex-start">
-                        <Heading as="h1" size="xl">
-                            Welcome to Pet Guardian!
-                        </Heading>
-                        {/* Thêm nội dung cho body ở đây */}
-                        <Text>Đây là các mặt hàng của Pet Guardian</Text>
-                    </VStack>
+                <Container maxW="container.lg" p={10}>
+                    <Heading as="h1" size="xl" mb={4}>
+                        Products
+                    </Heading>
+                    <ProductGrid products={products} onAddToCart={handleAddToCart} fetchCart={fetchCart} setCart={setCart} /> {/* Truyền hàm handleAddToCart cho ProductGrid */}
                 </Container>
             </Box>
-
-            {/* Footer */}
             <Footer />
         </Box>
     );
