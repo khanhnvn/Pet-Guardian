@@ -1,3 +1,4 @@
+//useProduct.js
 import { useState, useEffect } from 'react';
 import { useToast } from '@chakra-ui/react';
 

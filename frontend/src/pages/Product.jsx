@@ -1,3 +1,4 @@
+//Product.jsx
 import { Box, Container, Heading } from '@chakra-ui/react';
 import Navbar from "./components/NavBar";
 import Footer from "./components/Footer";

@@ -1,9 +1,10 @@
+//Cancel.jsx
 import React from 'react';
 import { Heading, Container, Box } from '@chakra-ui/react';
 import Navbar from './components/NavBar';
 import Footer from './components/Footer';
 
-const Cancel = () => {
+const CancelPay = () => {
     return (
         <Box bg="#FFFCF8" minHeight="100vh" display="flex" flexDirection="column">
             <Navbar />
@@ -20,4 +21,4 @@ const Cancel = () => {
     );
 };
 
-export default Cancel;
+export default CancelPay;

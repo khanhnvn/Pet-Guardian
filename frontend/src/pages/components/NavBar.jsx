@@ -1,3 +1,4 @@
+//NavBar.jsx
 import { useState, useEffect } from 'react';
 import {
     Flex,
@@ -35,7 +36,7 @@ const Navbar = () => {
 
     return (
         <Flex bg="white" p={4} alignItems="center" justifyContent="space-between">
-            <NavLink to="/"> {/* Thay đổi đường dẫn mặc định */}
+            <NavLink to="/homepage"> {/* Thay đổi đường dẫn mặc định */}
                 <Image src="/logo.png" alt="Logo" boxSize="50px" />
             </NavLink>
             <Spacer />
@@ -60,9 +61,9 @@ const Navbar = () => {
                                 <NavLink to="/service">
                                     <Tab _selected={{ color: 'blue.500' }}>Service</Tab>
                                 </NavLink>
-                                <NavLink to="/reminder">
+                                {/*<NavLink to="/reminder">
                                     <Tab _selected={{ color: 'blue.500' }}>Reminder</Tab>
-                                </NavLink>
+                                </NavLink>*/}
                                 <NavLink to="/cart">
                                     <Tab _selected={{ color: 'blue.500' }}>Cart</Tab>
                                 </NavLink>

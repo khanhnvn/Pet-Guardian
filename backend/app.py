@@ -13,6 +13,8 @@ import math
 import locale
 from payos import PaymentData, ItemData, PayOS
 from dotenv import load_dotenv
+import json
+from datetime import datetime
 
 app = Flask(__name__, static_folder='../frontend/public')
 app.secret_key = 'your secret key' 
@@ -89,6 +91,8 @@ def format_currency(amount):
   amount = math.floor(amount / 1000) * 1000
   return locale.currency(amount, grouping=True, symbol=True)
 
+# === API endpoints cho login/register ===
+
 @app.route('/api/register', methods=['POST'])
 def register():
     try:
@@ -130,7 +134,7 @@ def login():
 
         if not email or not password:
             return jsonify({'message': 'Vui lòng điền đầy đủ thông tin'}), 400
-
+        
         with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
             cursor.execute('SELECT * FROM accounts WHERE email = %s', (email,))  # Sử dụng email
             account = cursor.fetchone()
@@ -145,6 +149,8 @@ def login():
             else:
                 # Sai email hoặc mật khẩu
                 return jsonify({'message': 'Sai email hoặc mật khẩu'}), 401
+            
+            
 
     except Exception as e:
         print(f"Lỗi đăng nhập: {e}")
@@ -153,6 +159,66 @@ def login():
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+# === API endpoints cho forgot_password ===
+
+@app.route('/api/forgot_password', methods=['POST'])
+def forgot_password():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+
+        if not email:
+            return jsonify({'message': 'Vui lòng nhập địa chỉ email'}), 400
+
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT * FROM accounts WHERE email = %s', (email,))
+        account = cursor.fetchone()
+
+        if account:
+            verification_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6)) # Tạo mã xác thực ngẫu nhiên
+            session['verification_code'] = verification_code # Lưu mã xác thực vào session
+            session['email_to_reset'] = email # Lưu email vào session
+
+            send_verification_email(email, verification_code) # Gửi email xác thực
+
+            return jsonify({'message': 'Mã xác thực đã được gửi đến email của bạn'}), 200
+        else:
+            return jsonify({'message': 'Email không tồn tại'}), 404
+
+    except Exception as e:
+        print(f"Lỗi gửi mã xác thực: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+@app.route('/api/change_password', methods=['POST'])
+def change_password():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        verification_code = data.get('verificationCode')
+        new_password = data.get('newPassword')
+
+        if not email or not verification_code or not new_password:
+            return jsonify({'message': 'Vui lòng điền đầy đủ thông tin'}), 400
+
+        if verification_code != session.get('verification_code') or email != session.get('email_to_reset'):
+            return jsonify({'message': 'Mã xác thực không đúng'}), 400
+
+        hashed_pass = hash_password(new_password)
+
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('UPDATE accounts SET password = %s WHERE email = %s', (hashed_pass, email))
+        mysql.connection.commit()
+
+        return jsonify({'message': 'Đổi mật khẩu thành công'}), 200
+
+    except Exception as e:
+        print(f"Lỗi đổi mật khẩu: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+
+# === API endpoints cho pet ===
 
 @app.route('/api/pets', methods=['POST'])
 @login_required
@@ -267,8 +333,6 @@ def get_pet_details(pet_id):
         print(f"Lỗi lấy thông tin chi tiết thú cưng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-# === Route thêm cân nặng ===
-
 @app.route('/api/pets/<int:pet_id>/weight', methods=['POST'])
 @login_required
 def add_pet_weight(pet_id):
@@ -296,8 +360,6 @@ def add_pet_weight(pet_id):
     except Exception as e:
         print(f"Lỗi thêm cân nặng cho thú cưng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
-
-# === Route xóa cân nặng ===
 
 @app.route('/api/pets/<int:pet_id>/weight/<int:weight_id>', methods=['DELETE'])
 @login_required
@@ -350,7 +412,6 @@ def add_pet_vaccine(pet_id):
         print(f"Lỗi thêm vắc xin: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-
 @app.route('/api/pets/<int:pet_id>/vaccines/<int:vaccine_id>', methods=['DELETE'])
 @login_required
 def delete_pet_vaccine(pet_id, vaccine_id):
@@ -400,7 +461,6 @@ def add_pet_medication(pet_id):
     except Exception as e:
         print(f"Lỗi thêm thuốc: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
-
 
 @app.route('/api/pets/<int:pet_id>/medications/<int:medication_id>', methods=['DELETE'])
 @login_required
@@ -474,59 +534,104 @@ def delete_pet_allergy(pet_id, allergy_id):
         print(f"Lỗi xóa dị ứng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-@app.route('/api/forgot_password', methods=['POST'])
-def forgot_password():
+
+# === API endpoints cho veterinarian contacts ===
+
+@app.route('/api/veterinarian_contacts', methods=['POST'])
+@login_required
+def add_veterinarian_contact():
     try:
         data = request.get_json()
-        email = data.get('email')
+        contact_name = data.get('contact_name')
+        contact_gender = data.get('contact_gender')
+        contact_language = data.get('contact_language')
+        contact_phone = data.get('contact_phone')
+        vet_address = data.get('vet_address')
+        vet_email = data.get('vet_email')
+        vet_speciality = data.get('vet_speciality')
+        vet_clinic = data.get('vet_clinic')
 
-        if not email:
-            return jsonify({'message': 'Vui lòng nhập địa chỉ email'}), 400
+        # Validate dữ liệu đầu vào (nếu cần)
 
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('SELECT * FROM accounts WHERE email = %s', (email,))
-        account = cursor.fetchone()
+        with mysql.connection.cursor() as cursor:
+            cursor.execute(
+                'INSERT INTO veterinarian_contacts (user_id, contact_name, contact_gender, contact_language, contact_phone, vet_address, vet_email, vet_speciality, vet_clinic) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)',
+                (session['id'], contact_name, contact_gender, contact_language, contact_phone, vet_address, vet_email, vet_speciality, vet_clinic)
+            )
+            mysql.connection.commit()
 
-        if account:
-            verification_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6)) # Tạo mã xác thực ngẫu nhiên
-            session['verification_code'] = verification_code # Lưu mã xác thực vào session
-            session['email_to_reset'] = email # Lưu email vào session
-
-            send_verification_email(email, verification_code) # Gửi email xác thực
-
-            return jsonify({'message': 'Mã xác thực đã được gửi đến email của bạn'}), 200
-        else:
-            return jsonify({'message': 'Email không tồn tại'}), 404
-
+        return jsonify({'message': 'Thêm liên lạc bác sĩ thú y thành công'}), 201
     except Exception as e:
-        print(f"Lỗi gửi mã xác thực: {e}")
+        print(f"Lỗi thêm liên lạc bác sĩ thú y: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
-
-@app.route('/api/change_password', methods=['POST'])
-def change_password():
+    
+@app.route('/api/veterinarian_contacts', methods=['GET'])
+@login_required
+def get_veterinarian_contacts():
+    try:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('SELECT * FROM veterinarian_contacts WHERE user_id = %s', (session['id'],))
+            contacts = cursor.fetchall()
+        return jsonify(contacts)
+    except Exception as e:
+        print(f"Lỗi lấy danh sách liên lạc bác sĩ thú y: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/veterinarian_contacts/<int:contact_id>', methods=['PUT'])
+@login_required
+def update_veterinarian_contact(contact_id):
     try:
         data = request.get_json()
-        email = data.get('email')
-        verification_code = data.get('verificationCode')
-        new_password = data.get('newPassword')
+        contact_name = data.get('contact_name')
+        contact_gender = data.get('contact_gender')
+        contact_language = data.get('contact_language')
+        contact_phone = data.get('contact_phone')
+        vet_address = data.get('vet_address')
+        vet_email = data.get('vet_email')
+        vet_speciality = data.get('vet_speciality')
+        vet_clinic = data.get('vet_clinic')
 
-        if not email or not verification_code or not new_password:
-            return jsonify({'message': 'Vui lòng điền đầy đủ thông tin'}), 400
+        # Validate dữ liệu đầu vào (nếu cần)
+        # ...
 
-        if verification_code != session.get('verification_code') or email != session.get('email_to_reset'):
-            return jsonify({'message': 'Mã xác thực không đúng'}), 400
+        with mysql.connection.cursor() as cursor:
+            # Cập nhật thông tin liên lạc trong database
+            cursor.execute(
+                """
+                UPDATE veterinarian_contacts 
+                SET 
+                    contact_name = %s, 
+                    contact_gender = %s, 
+                    contact_language = %s, 
+                    contact_phone = %s, 
+                    vet_address = %s, 
+                    vet_email = %s, 
+                    vet_speciality = %s, 
+                    vet_clinic = %s 
+                WHERE id = %s AND user_id = %s
+                """,
+                (contact_name, contact_gender, contact_language, contact_phone, vet_address, vet_email, vet_speciality, vet_clinic, contact_id, session['id'])
+            )
+            mysql.connection.commit()
 
-        hashed_pass = hash_password(new_password)
-
-        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute('UPDATE accounts SET password = %s WHERE email = %s', (hashed_pass, email))
-        mysql.connection.commit()
-
-        return jsonify({'message': 'Đổi mật khẩu thành công'}), 200
-
+        return jsonify({'message': 'Cập nhật liên lạc bác sĩ thú y thành công'}), 200
     except Exception as e:
-        print(f"Lỗi đổi mật khẩu: {e}")
+        print(f"Lỗi cập nhật liên lạc bác sĩ thú y: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/veterinarian_contacts/<int:contact_id>', methods=['DELETE'])
+@login_required
+def delete_veterinarian_contact(contact_id):
+    try:
+        with mysql.connection.cursor() as cursor:
+            cursor.execute('DELETE FROM veterinarian_contacts WHERE id = %s AND user_id = %s', (contact_id, session['id']))
+            mysql.connection.commit()
+
+        return jsonify({'message': 'Xóa liên lạc bác sĩ thú y thành công'}), 200
+    except Exception as e:
+        print(f"Lỗi xóa liên lạc bác sĩ thú y: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
 
 # === API endpoints cho products ===
 
@@ -548,6 +653,118 @@ def get_products():
         return jsonify(products)
     except Exception as e:
         print(f"Lỗi lấy danh sách sản phẩm: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/admin/products', methods=['GET'])  # Đổi tên endpoint để phân biệt
+@login_required
+def get_all_products():
+    try:
+        # Kiểm tra role (chỉ admin mới được phép truy cập)
+        if session['role_id'] != 2:
+            return jsonify({'message': 'Bạn không có quyền truy cập'}), 403
+
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            # Sử dụng JOIN để lấy thêm tên customer
+            cursor.execute("""
+                SELECT p.*, a.username AS customer_name 
+                FROM products p
+                JOIN accounts a ON p.customer_id = a.id
+            """)
+            products = cursor.fetchall()
+
+            for product in products:
+                # Lấy danh sách hình ảnh của sản phẩm
+                cursor.execute('SELECT image_url FROM product_images WHERE product_id = %s', (product['id'],))
+                product['images'] = [row['image_url'] for row in cursor.fetchall()]
+                product['price'] = format_currency(product['price'])
+
+        return jsonify(products)
+    except Exception as e:
+        print(f"Lỗi lấy danh sách sản phẩm: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/admin/products/<int:product_id>', methods=['PUT'])
+@login_required
+def update_product_admin(product_id):
+    try:
+        # Kiểm tra role (chỉ admin mới được phép truy cập)
+        if session['role_id'] != 2:
+            return jsonify({'message': 'Bạn không có quyền truy cập'}), 403
+
+        name = request.form.get('name')
+        description = request.form.get('description')
+        price = request.form.get('price')
+        images = request.files.getlist('images[]')
+        quantity = request.form.get('quantity')
+
+        # Validate dữ liệu đầu vào (nếu cần)
+        # ...
+
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            # Cập nhật thông tin sản phẩm trong database
+            update_fields = []
+            update_values = []
+            if name:
+                update_fields.append('name = %s')
+                update_values.append(name)
+            if description:
+                update_fields.append('description = %s')
+                update_values.append(description)
+            if price:
+                update_fields.append('price = %s')
+                update_values.append(price)
+            if quantity:
+                update_fields.append('quantity = %s')
+                update_values.append(quantity)
+
+            if update_fields:
+                query = f"UPDATE products SET {', '.join(update_fields)} WHERE id = %s"
+                update_values.append(product_id)
+                cursor.execute(query, tuple(update_values))
+
+            # Xử lý hình ảnh (nếu có)
+            if images:
+                # Xóa hình ảnh cũ (nếu có)
+                cursor.execute('DELETE FROM product_images WHERE product_id = %s', (product_id,))
+
+                UPLOAD_PATH = os.path.abspath('../frontend/public/uploads')
+                filenames = []
+                for image in images:
+                    if not allowed_file(image.filename):
+                        return jsonify({'message': 'Định dạng ảnh không được phép'}), 400
+                    filename = image.filename
+                    image.save(os.path.join(UPLOAD_PATH, filename))
+                    filenames.append(filename)
+
+                # Thêm hình ảnh mới
+                if filenames:
+                    for i, filename in enumerate(filenames):
+                        is_main = i == 0  # Hình ảnh đầu tiên là hình ảnh chính
+                        cursor.execute('INSERT INTO product_images (product_id, image_url, is_main) VALUES (%s, %s, %s)', (product_id, filename, is_main))
+
+            mysql.connection.commit()
+
+        return jsonify({'message': 'Cập nhật sản phẩm thành công'}), 200
+    except Exception as e:
+        print(f"Lỗi cập nhật sản phẩm: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+    
+@app.route('/api/admin/products/<int:product_id>', methods=['DELETE'])
+@login_required
+def delete_product_admin(product_id):
+    try:
+        # Kiểm tra role (chỉ admin mới được phép truy cập)
+        if session['role_id'] != 2:
+            return jsonify({'message': 'Bạn không có quyền truy cập'}), 403
+
+        with mysql.connection.cursor() as cursor:
+            # Xóa sản phẩm khỏi database
+            cursor.execute('DELETE FROM products WHERE id = %s', (product_id,))
+            mysql.connection.commit()
+
+        return jsonify({'message': 'Xóa sản phẩm thành công'}), 200
+    except Exception as e:
+        print(f"Lỗi xóa sản phẩm: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
 @app.route('/api/products/<int:product_id>', methods=['GET'])
@@ -742,6 +959,136 @@ def delete_product(product_id):
         print(f"Lỗi xóa sản phẩm: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
+
+# === API endpoints cho service ===
+
+@app.route('/api/services/my', methods=['GET'])
+@login_required
+def get_my_services():
+    """Lấy danh sách dịch vụ của customer hiện tại."""
+    try:
+        if session['role_id'] != 3:  # Chỉ customer mới được phép truy cập
+            return jsonify({'message': 'Bạn không có quyền truy cập'}), 403
+
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('SELECT * FROM services WHERE customer_id = %s', (session['id'],))
+            services = cursor.fetchall()
+
+            for service in services:
+                service['price'] = format_currency(service['price'])
+
+        return jsonify(services)
+    except Exception as e:
+        print(f"Lỗi lấy danh sách dịch vụ của customer: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+@app.route('/api/services', methods=['POST'])
+@login_required
+def add_service():
+    """Thêm dịch vụ mới."""
+    try:
+        if session['role_id'] not in (2, 3):  # Chỉ customer và admin mới được phép thêm dịch vụ
+            return jsonify({'message': 'Bạn không có quyền thêm dịch vụ'}), 403
+
+        data = request.get_json()
+        name = data.get('name')
+        description = data.get('description')
+        price = data.get('price')
+
+        # Validate dữ liệu đầu vào (nếu cần)
+        # ...
+
+        with mysql.connection.cursor() as cursor:
+            cursor.execute(
+                'INSERT INTO services (customer_id, name, description, price) VALUES (%s, %s, %s, %s)',
+                (session['id'], name, description, price)
+            )
+            mysql.connection.commit()
+
+        return jsonify({'message': 'Thêm dịch vụ thành công'}), 201
+    except Exception as e:
+        print(f"Lỗi thêm dịch vụ: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+@app.route('/api/services/<int:service_id>', methods=['PUT'])
+@login_required
+def update_service(service_id):
+    """Cập nhật thông tin dịch vụ."""
+    try:
+        if session['role_id'] not in (2, 3):  # Chỉ customer và admin mới được phép sửa dịch vụ
+            return jsonify({'message': 'Bạn không có quyền sửa dịch vụ'}), 403
+
+        data = request.get_json()
+        name = data.get('name')
+        description = data.get('description')
+        price = data.get('price')
+
+        # Validate dữ liệu đầu vào (nếu cần)
+        # ...
+
+        with mysql.connection.cursor() as cursor:
+            # Cập nhật thông tin dịch vụ trong database
+            update_fields = []
+            update_values = []
+            if name:
+                update_fields.append('name = %s')
+                update_values.append(name)
+            if description:
+                update_fields.append('description = %s')
+                update_values.append(description)
+            if price:
+                update_fields.append('price = %s')
+                update_values.append(price)
+
+            if update_fields:
+                query = f"UPDATE services SET {', '.join(update_fields)} WHERE id = %s AND customer_id = %s"
+                update_values.extend([service_id, session['id']])
+                cursor.execute(query, tuple(update_values))
+
+            mysql.connection.commit()
+
+        return jsonify({'message': 'Cập nhật dịch vụ thành công'}), 200
+    except Exception as e:
+        print(f"Lỗi cập nhật dịch vụ: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+@app.route('/api/services/<int:service_id>', methods=['DELETE'])
+@login_required
+def delete_service(service_id):
+    """Xóa dịch vụ."""
+    try:
+        if session['role_id'] not in (2, 3):  # Chỉ customer và admin mới được phép xóa dịch vụ
+            return jsonify({'message': 'Bạn không có quyền xóa dịch vụ'}), 403
+
+        with mysql.connection.cursor() as cursor:
+            # Xóa dịch vụ khỏi database
+            cursor.execute('DELETE FROM services WHERE id = %s AND customer_id = %s', (service_id, session['id']))
+            mysql.connection.commit()
+
+        return jsonify({'message': 'Xóa dịch vụ thành công'}), 200
+    except Exception as e:
+        print(f"Lỗi xóa dịch vụ: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+@app.route('/api/services', methods=['GET'])
+def get_services():
+    """Lấy danh sách tất cả dịch vụ."""
+    try:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute('SELECT * FROM services')
+            services = cursor.fetchall()
+
+            for service in services:
+                service['price'] = format_currency(service['price'])
+
+        return jsonify(services)
+    except Exception as e:
+        print(f"Lỗi lấy danh sách dịch vụ: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+
+# === API endpoints cho cart ===
+
 @app.route('/api/cart', methods=['GET'])
 @login_required
 def get_cart():
@@ -805,7 +1152,7 @@ def add_to_cart():
         print(f"Lỗi thêm sản phẩm vào giỏ hàng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-@app.route('/api/cart/remove/<int:cart_item_id>', methods=['DELETE'])  # Sửa product_id thành cart_item_id
+@app.route('/api/cart/remove/<int:cart_item_id>', methods=['DELETE']) 
 @login_required
 def remove_from_cart(cart_item_id):
     try:
@@ -849,82 +1196,152 @@ def update_cart():
         print(f"Lỗi cập nhật giỏ hàng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-@app.route('/api/cart/checkout', methods=['POST'])
+@app.route('/api/cart/checkout/', methods=['POST'])
 @login_required
 def checkout():
-    domain = request.host_url  # Lấy domain từ request
     try:
+        data = request.get_json()
+        cart_item_ids = data.get('cart_item_ids', [])
+        recipient_info = data.get('recipient_info', {})
+        shipping_address = data.get('shipping_address', {})
+        notes = data.get('notes', '')
+
+        if not cart_item_ids:
+            return jsonify({'message': 'Vui lòng chọn sản phẩm để thanh toán'}), 400
+
         with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
-            cursor.execute('SELECT * FROM cart WHERE user_id = %s', (session['id'],))
-            cart_items = cursor.fetchall()
-            print(f"cart_items: {cart_items}")
-            if not cart_items:
-                return jsonify({'message': 'Giỏ hàng trống'}), 400
+            try:
+                # Bắt đầu transaction
+                cursor.execute('START TRANSACTION')
 
-            # Tính toán tổng tiền và kiểm tra số lượng sản phẩm
-            total_amount = 0
-            for item in cart_items:
-                cursor.execute('SELECT * FROM products WHERE id = %s', (item['product_id'],))
-                product = cursor.fetchone()
-                if not product:
-                    return jsonify({'message': f'Không tìm thấy sản phẩm có id {item["product_id"]}'}), 404
-                if product['quantity'] < item['quantity']:
-                    return jsonify({'message': f'Số lượng sản phẩm {product["name"]} không đủ'}), 400
-                total_amount += product['price'] * item['quantity']
-            print(f"total_amount: {total_amount}")
-        # Tạo liên kết thanh toán PayOS
-        payment_data = PaymentData(
-            orderCode=random.randint(1000, 99999),
-            amount=int(total_amount),
-            description='Đơn hàng Pet Guardian',
-            cancelUrl=f"{domain}cart",  # Chuyển hướng về trang giỏ hàng nếu hủy thanh toán
-            returnUrl=f"{domain}api/payment/return"  # Chuyển hướng sau khi thanh toán thành công
-        )
-        print(f"orderCode: {random.randint(1000, 99999)}")
-        print(f"amount: {int(total_amount)}")
-        print(f"description: {'Đơn hàng Pet Guardian'}")
-        print(f"cancelUrl: {f'{domain}cart'}")
-        print(f"returnUrl: {f'{domain}api/payment/return'}")
-        payos_payment = payos.createPaymentLink(payment_data)  # Tạo liên kết thanh toán
-        print(f"payos_payment: {payos_payment.to_json()}")
-        print(payos_payment)  # In ra response từ PayOS
+                # Lấy thông tin giỏ hàng từ bảng cart
+                cart_items_query = ', '.join(['%s'] * len(cart_item_ids))
+                cursor.execute(f'SELECT * FROM cart WHERE id IN ({cart_items_query}) AND user_id = %s', (*cart_item_ids, session['id']))
+                cart_items = cursor.fetchall()
 
-        return jsonify(payos_payment.to_json()), 200  # Trả về JSON chứa checkout_url
+                # Tính toán tổng tiền và kiểm tra số lượng sản phẩm
+                total_amount = 0
+                for item in cart_items:
+                    cursor.execute('SELECT id, name, price, quantity, customer_id FROM products WHERE id = %s', (item['product_id'],))
+                    product = cursor.fetchone()
+                    if not product:
+                        raise Exception(f'Không tìm thấy sản phẩm có id {item["product_id"]}')
+                    if product['quantity'] < item['quantity']:
+                        raise Exception(f'Số lượng sản phẩm {product["name"]} không đủ')
+                    total_amount += product['price'] * item['quantity']
+
+                # Cộng thêm phí ship 
+                total_amount += 25000
+
+                # Tạo đơn hàng mới với trạng thái "pending" và customer_id từ products
+                cursor.execute(
+                    'INSERT INTO orders (user_id, customer_id, total_amount, shipping_address, order_date, status, notes) '
+                    'SELECT %s, customer_id, %s, %s, %s, %s, %s FROM products WHERE id = %s',
+                    (session['id'], total_amount, json.dumps(shipping_address), datetime.now(), 'pending', notes, cart_items[0]['product_id'])
+                )
+                order_id = cursor.lastrowid
+
+                # Tạo liên kết thanh toán PayOS
+                payment_data = PaymentData(
+                    orderCode=order_id,
+                    amount=int(total_amount),
+                    description='Đơn hàng Pet Guardian',
+                    cancelUrl=f"http://localhost:3000/cancel",
+                    returnUrl=f"http://localhost:3000/success"
+                )
+                payos_payment = payos.createPaymentLink(payment_data)
+
+                # Commit transaction
+                cursor.execute('COMMIT')
+
+                return jsonify(payos_payment.to_json()), 200
+
+            except Exception as e:
+                # Rollback transaction nếu có lỗi
+                cursor.execute('ROLLBACK')
+                print(f"Lỗi thanh toán: {e}")
+                return jsonify({'message': str(e)}), 500
+
     except Exception as e:
         print(f"Lỗi thanh toán: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-@app.route('/api/payment/return', methods=['GET'])
-@login_required
-def payment_return():
+
+@app.route('/api/payos/callback', methods=['POST'])
+def payos_callback():
     try:
-        payment_id = request.args.get('payment_id')
+        data = request.get_json()
+        print("Dữ liệu callback từ PayOS:", data)
+        order_code = data.get('orderCode')
+        status = data.get('status')
 
-        # Lấy thông tin thanh toán từ PayOS
-        payment = payos.get_payment(payment_id)
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            try:
+                # Bắt đầu transaction
+                cursor.execute('START TRANSACTION')
 
-        if payment.state == 'completed':
-            # Xử lý thanh toán thành công
-            with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
-                for item in payment.items:
-                    # Tạo bản ghi giao dịch
-                    cursor.execute('INSERT INTO transactions (user_id, product_id, quantity, amount, status, transaction_date) VALUES (%s, %s, %s, %s, %s, NOW())',
-                                   (session['id'], item.id, item.quantity, item.amount, 'completed'))
+                if status == 'COMPLETED':
+                    # Cập nhật trạng thái đơn hàng
+                    cursor.execute('UPDATE orders SET status = %s WHERE id = %s', ('completed', order_code))
 
-                    # Cập nhật số lượng sản phẩm
-                    cursor.execute('UPDATE products SET quantity = quantity - %s, sales = sales + %s WHERE id = %s', (item.quantity, item.quantity, item.id))
+                    # Lấy thông tin đơn hàng
+                    cursor.execute('SELECT * FROM orders WHERE id = %s', (order_code,))
+                    order = cursor.fetchone()
 
-                # Xóa giỏ hàng trong database
-                cursor.execute('DELETE FROM cart WHERE user_id = %s', (session['id'],)) 
-                mysql.connection.commit()
+                    # Lấy danh sách sản phẩm từ order_items
+                    cursor.execute('SELECT product_id, quantity FROM order_items WHERE order_id = %s', (order_code,))
+                    order_items = cursor.fetchall()
 
-            return jsonify({'message': 'Thanh toán thành công'}), 200
-        else:
-            # Xử lý thanh toán thất bại
-            return jsonify({'message': 'Thanh toán thất bại'}), 400
+                    # Cập nhật số lượng sản phẩm trong kho và sales
+                    for item in order_items:
+                        cursor.execute('UPDATE products SET quantity = quantity - %s, sales = sales + %s WHERE id = %s', (item['quantity'], item['quantity'], item['product_id']))
+
+                    # Xóa giỏ hàng của người dùng
+                    cursor.execute('DELETE FROM cart WHERE user_id = %s', (order['user_id'],))
+
+                elif status == 'CANCELLED':
+                    # Xóa đơn hàng khi hủy thanh toán
+                    cursor.execute('DELETE FROM orders WHERE id = %s AND status = "pending"', (order_code,))
+
+                # Commit transaction
+                cursor.execute('COMMIT')
+
+                return jsonify({'message': 'Xử lý callback thành công'}), 200
+
+            except Exception as e:
+                # Rollback transaction nếu có lỗi
+                cursor.execute('ROLLBACK')
+                print(f"Lỗi xử lý callback: {e}")
+                return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
     except Exception as e:
-        print(f"Lỗi xử lý kết quả thanh toán: {e}")
+        print(f"Lỗi xử lý callback: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+@app.route('/api/customers/revenue', methods=['GET'])
+@login_required
+def get_customer_revenue():
+    try:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            # Lấy customer_id từ session
+            customer_id = session.get('customer_id')
+            print(f"Customer ID: {customer_id}")
+            # Truy vấn SQL để tính tổng doanh thu
+            cursor.execute("""
+                SELECT SUM(oi.price * oi.quantity) AS total_revenue
+                FROM order_items oi
+                JOIN orders o ON oi.order_id = o.id
+                WHERE o.customer_id = %s
+            """, (customer_id,))
+            result = cursor.fetchone()
+
+        total_revenue = result['total_revenue'] if result['total_revenue'] else 0
+        return jsonify({'total_revenue': total_revenue}), 200
+
+    except Exception as e:
+        print(f"Lỗi lấy doanh số customer: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

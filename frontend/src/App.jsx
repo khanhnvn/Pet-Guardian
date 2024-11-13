@@ -1,3 +1,4 @@
+//App.jsx http://localhost:3000/
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Register from './pages/Register.jsx';
@@ -14,12 +15,14 @@ import CustomerHomePage from './pages/CustomerHomePage.jsx';
 import AdminHomePage from './pages/AdminHomePage.jsx'; 
 import MyProduct from './pages/MyProduct.jsx';
 import MyService from './pages/MyService.jsx';
-import AdminProducts from './pages/AdminProduct.jsx'; 
+import Service from './pages/Service.jsx';
+import AllProducts from './pages/AllProduct.jsx'; 
 import AdminServices from './pages/AdminService.jsx';
 import Cart from './pages/Cart.jsx';
 import ProductDetail from './pages/components/ProductDetail.jsx'; 
-import Cancel from './pages/Cancel.jsx';
+import CheckoutPage from './pages/CheckoutPage.jsx';
 import Success from './pages/Success.jsx';
+import CancelPay from './pages/Cancel.jsx';
 
 function App() {
     const [cart, setCart] = useState([]); // State giỏ hàng ở App.jsx
@@ -46,21 +49,23 @@ function App() {
                 <Route path="/pet" element={<PetInfo />} />
                 <Route path="/reminder" element={<Reminder />} />
                 <Route path="/vet" element={<VetInfo />} />
-                <Route path="/service" element={<MyService />} />
-                <Route path="/vet" element={<VetInfo />} />
+                <Route path="/myservice" element={<MyService />} />
+                <Route path="/service" element={<Service />} />
                 <Route path="/forgotpassword" element={<ForgotPassword />} />
                 <Route path="/changepassword" element={<ChangePassword />} />
                 <Route path="/pet/:petId/health" element={<PetHealthDetail />} />
                 <Route path="/customerhomepage" element={<CustomerHomePage />} />
                 <Route path="/adminhomepage" element={<AdminHomePage />} />
                 <Route path="/myproduct" element={<MyProduct />} /> 
-                <Route path="/admin/allproducts" element={<AdminProducts />} />
+                <Route path="/admin/allproducts" element={<AllProducts />} />
                 <Route path="/admin/allservices" element={<AdminServices />} />
                 <Route path="/cart" element={<Cart fetchCart={fetchCart} cart={cart} setCart={setCart} />} /> 
                 <Route path="/product" element={<Product fetchCart={fetchCart} cart={cart} setCart={setCart} />} /> {/* Truyền setCart cho Product */} 
                 <Route path="/product/:productId" element={<ProductDetail fetchCart={fetchCart} setCart={setCart} />} /> {/* Truyền setCart cho ProductDetail */}
-                <Route path="/cancel" element={<Cancel />} />
-                <Route path="/success" element={<Success />} />
+                <Route path="/checkout" element={<CheckoutPage fetchCart={fetchCart} cart={cart} setCart={setCart} />} /> 
+                <Route path="/success" element={<Success />} /> 
+                <Route path="/cancel" element={<CancelPay />} /> 
+
             </Routes>
         </BrowserRouter>
     );

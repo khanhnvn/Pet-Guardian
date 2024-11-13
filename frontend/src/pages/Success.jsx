@@ -1,4 +1,5 @@
-import React from 'react';
+//Success.jsx
+import {React, useEffect} from 'react';
 import { Heading, Container, Box, Text } from '@chakra-ui/react';
 import Navbar from './components/NavBar';
 import Footer from './components/Footer';

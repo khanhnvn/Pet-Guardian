@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+//Cart.jsx
+import { useState, useEffect, useMemo } from 'react';
 import {
     Box,
     Heading,
@@ -15,13 +16,17 @@ import {
     NumberIncrementStepper,
     NumberDecrementStepper,
     Spacer,
+    Checkbox,
 } from '@chakra-ui/react';
 import Navbar from "./components/NavBar";
 import Footer from "./components/Footer";
+import { Link, useNavigate } from 'react-router-dom';
 
 const Cart = () => {
     const toast = useToast();
     const [cart, setCart] = useState([]);
+    const [selectedItems, setSelectedItems] = useState([]); // State lưu trữ các item được chọn
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchCart();
@@ -46,7 +51,7 @@ const Cart = () => {
             });
         }
     };
-    
+
     const handleRemoveFromCart = async (cartItemId) => {
         try {
             const response = await fetch(`/api/cart/remove/${cartItemId}`, {
@@ -61,7 +66,6 @@ const Cart = () => {
                     isClosable: true,
                 });
             } else {
-                // Xử lý lỗi
                 const errorData = await response.json();
                 toast({
                     title: 'Lỗi!',
@@ -83,21 +87,19 @@ const Cart = () => {
         }
     };
 
-    const handleQuantityChange = async (cartItemId, newQuantity) => { // Sửa productId thành cartItemId
+    const handleQuantityChange = async (cartItemId, newQuantity) => {
         try {
-            // Gửi request đến API để cập nhật số lượng
             const response = await fetch('/api/cart/update', {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ cart_item_id: cartItemId, quantity: newQuantity }), // Sửa product_id thành cart_item_id
+                body: JSON.stringify({ cart_item_id: cartItemId, quantity: newQuantity }),
             });
 
             if (response.ok) {
-                fetchCart(); // Cập nhật lại giỏ hàng sau khi thay đổi số lượng
+                fetchCart();
             } else {
-                // Xử lý lỗi
                 const errorData = await response.json();
                 toast({
                     title: 'Lỗi!',
@@ -119,40 +121,51 @@ const Cart = () => {
         }
     };
 
-    const handleCheckout = async () => {
-        try {
-            const response = await fetch('/api/cart/checkout', {
-                method: 'POST',
-            });
-            if (response.ok) {
-                const data = await response.json();
-                console.log("Checkout data:", data);
-                window.open(data.checkoutUrl);
+    // Hàm xử lý khi checkbox thay đổi
+    useEffect(() => {
+        console.log("selectedItems đã được cập nhật:", selectedItems);
+      }, [selectedItems]); 
+      
+      const handleCheckboxChange = (e, itemId) => {
+            setSelectedItems(prevSelected => {
+            if (e.target.checked) {
+                console.log("Thêm vào selectedItems:", itemId);
+                return [...prevSelected, itemId];
             } else {
-                // Xử lý lỗi thanh toán
-                const errorData = await response.json();
-                toast({
-                    title: 'Lỗi!',
-                    description: errorData.message || 'Lỗi khi thanh toán.',
-                    status: 'error',
-                    duration: 3000,
-                    isClosable: true,
-                });
+                console.log("Xóa khỏi selectedItems:", itemId);
+                return prevSelected.filter(id => id !== itemId);
             }
-        } catch (error) {
-            console.error('Lỗi:', error);
+            });
+      };
+
+    // Tính toán tổng tiền của các sản phẩm được chọn
+    const totalPrice = useMemo(() => {
+        return cart.reduce((total, item) => {
+            if (selectedItems.includes(item.cart_item_id)) {
+                // Kiểm tra xem item.price có phải là chuỗi tiền tệ không
+                const price = typeof item.price === 'string' ? parseFloat(item.price.replace(/[^0-9.-]+/g, "")) : item.price;
+                return total + price * item.quantity;
+            }
+            return total;
+        }, 0);
+    }, [cart, selectedItems]);
+
+    const handleCheckout = () => {
+        console.log("selectedItems trước khi chuyển hướng:", selectedItems);
+
+        if (selectedItems.length == 0) {
             toast({
                 title: 'Lỗi!',
-                description: 'Đã có lỗi xảy ra.',
+                description: 'Vui lòng chọn ít nhất một sản phẩm.',
                 status: 'error',
                 duration: 3000,
                 isClosable: true,
             });
+        } else{
+        navigate(`/checkout?items=${selectedItems.join(',')}`); 
         }
     };
 
-    // Tính toán tổng tiền
-    const totalPrice = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
     return (
         <Box bg="#FFFCF8" minHeight="100vh" display="flex" flexDirection="column">
@@ -169,7 +182,10 @@ const Cart = () => {
                             {cart.map((item) => (
                                 <Box key={item.id} borderWidth="1px" borderRadius="lg" p={4}>
                                     <HStack>
-                                        {/* Hiển thị hình ảnh */}
+                                        <Checkbox 
+                                            isChecked={selectedItems.includes(item.cart_item_id)} 
+                                            onChange={(e) => handleCheckboxChange(e, item.cart_item_id)} 
+                                        />
                                         {item.images && item.images.length > 0 ? (
                                             <Image src={`/uploads/${item.images[0]}`} alt={item.name} boxSize="100px" objectFit="cover" />
                                         ) : (
@@ -180,12 +196,11 @@ const Cart = () => {
                                                 {item.name}
                                             </Heading>
                                             <Text>Giá: {item.price}</Text>
-                                            {/* NumberInput để thay đổi số lượng */}
                                             <NumberInput 
                                                 value={item.quantity} 
                                                 min={1} 
                                                 max={item.quantity} 
-                                                onChange={(valueString) => handleQuantityChange(item.cart_item_id, parseInt(valueString || '1', 10))} // Thay đổi product.id thành item.cart_item_id
+                                                onChange={(valueString) => handleQuantityChange(item.cart_item_id, parseInt(valueString || '1', 10))}
                                             >
                                                 <NumberInputField />
                                                 <NumberInputStepper>
@@ -195,17 +210,19 @@ const Cart = () => {
                                             </NumberInput>
                                         </VStack>
                                         <Spacer />
-                                        <Button colorScheme="red" size="sm" onClick={() => handleRemoveFromCart(item.cart_item_id)}> {/* Thay đổi product.id thành item.cart_item_id */}
+                                        <Button colorScheme="red" size="sm" onClick={() => handleRemoveFromCart(item.cart_item_id)}>
                                             Xóa
                                         </Button>
                                     </HStack>
                                 </Box>
                             ))}
                             <Box>
-                                <Text fontSize="xl" fontWeight="bold">Tổng tiền: ${totalPrice}</Text>
+                                <Text fontSize="xl" fontWeight="bold">Tổng tiền: {totalPrice}</Text> {/* Hiển thị tổng tiền */}
+                                
                                 <Button colorScheme="blue" mt={4} onClick={handleCheckout}>
                                     Tiến hành thanh toán
                                 </Button>
+                                
                             </Box>
                         </VStack>
                     )}

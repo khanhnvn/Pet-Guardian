@@ -1,3 +1,4 @@
+//ProductCard.jsx
 import { useState } from 'react';
 import {
     Box,
@@ -34,10 +35,13 @@ const ProductCard = ({ product, onAddToCart, fetchCart, setCart }) => {
                     {product.name}
                 </Heading>
                 <Text fontWeight="bold" mb={2}>
-                    Price: {product.price}
+                    Price: {product.price} 
                 </Text>
                 <Text>Quantity: {product.quantity}</Text>
-
+                <Text>Views: {product.views} - Sales: {product.sales}</Text>
+                <Text fontSize="sm" color="gray.500">
+                    Đăng bởi: {product.customer_name}
+                </Text>
             </Box>
         </Link>    
     );

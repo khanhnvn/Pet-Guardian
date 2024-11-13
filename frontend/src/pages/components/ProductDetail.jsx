@@ -1,3 +1,4 @@
+//ProductDetail.jsx
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -17,8 +18,8 @@ import {
     NumberDecrementStepper,
 } from '@chakra-ui/react';
 import { ArrowBackIcon, ArrowForwardIcon } from '@chakra-ui/icons';
-import Navbar from "../components/NavBar";
-import Footer from "../components/Footer";
+import Navbar from "./NavBar";
+import Footer from "./Footer";
 
 const ProductDetail = ({ fetchCart, setCart }) => {
     const { productId } = useParams();
@@ -132,6 +133,9 @@ const ProductDetail = ({ fetchCart, setCart }) => {
                             </HStack>
                         </Box>
                         <Box w="60%">
+                            <Text fontSize="sm" color="gray.500">
+                                Đăng bởi: {product.customer_name}
+                            </Text>
                             {/* ... (hiển thị mô tả, giá, lượt xem, lượt mua) */}
                             <Text mb={2}>{product.description}</Text>
                             <Text fontWeight="bold" mb={2}> Price: {product.price} </Text>

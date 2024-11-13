@@ -1,35 +1,54 @@
 // CustomerHomePage.jsx
+import { useState, useEffect } from 'react';
 import {
-    Box,
-    Heading,
-    Text,
-    VStack,
-    Container,
+  Box,
+  Heading,
+  Text,
+  VStack,
+  Container,
 } from '@chakra-ui/react';
 import Navbar from "./components/NavBar";
 import Footer from "./components/Footer";
 
 const CustomerHomePage = () => {
-    return (
-        <Box bg="#FFFCF8" minHeight="100vh" display="flex" flexDirection="column">
-            <Navbar />
-            <Box flex={1}>
-                <Container maxW="container.lg" p={10}>
-                    <VStack spacing={4} alignItems="flex-start">
-                        <Heading as="h1" size="xl">
-                            Welcome to your Customer Dashboard!
-                        </Heading>
-                        <Text>
-                            {/* Thêm thông tin hoặc hướng dẫn cho customer */}
-                            Bạn có thể quản lý sản phẩm, dịch vụ và xem báo cáo doanh thu tại đây.
-                        </Text>
-                        {/* Thêm các component hoặc liên kết đến các chức năng của customer */}
-                    </VStack>
-                </Container>
-            </Box>
-            <Footer />
-        </Box>
-    );
+  const [revenue, setRevenue] = useState(0);
+
+  useEffect(() => {
+    const fetchRevenue = async () => {
+      try {
+        const response = await fetch('/api/customers/revenue');
+        if (!response.ok) {
+          throw new Error('Lỗi khi lấy doanh số');
+        }
+        const data = await response.json();
+        setRevenue(data.total_revenue);
+      } catch (error) {
+        console.error('Lỗi:', error);
+        // Xử lý lỗi (ví dụ: hiển thị thông báo lỗi)
+      }
+    };
+
+    fetchRevenue();
+  }, []);
+
+  return (
+    <Box bg="#FFFCF8" minHeight="100vh" display="flex" flexDirection="column">
+      <Navbar />
+      <Box flex={1}>
+        <Container maxW="container.lg" p={10}>
+          <VStack spacing={4} alignItems="flex-start">
+            <Heading as="h1" size="xl">
+              Tổng doanh thu
+            </Heading>
+            <Text fontSize="2xl">
+              {revenue} VND
+            </Text>
+          </VStack>
+        </Container>
+      </Box>
+      <Footer />
+    </Box>
+  );
 };
 
 export default CustomerHomePage;
