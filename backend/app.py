@@ -32,6 +32,17 @@ CORS(app)
 
 mysql = MySQL(app)
 
+# frontend_folder = os.path.join(os.getcwd(),"..","frontend")
+# dist_folder = os.path.join(frontend_folder,"dist")
+
+# # server static files from the "dist" folder under the frontend directory
+# @app.route("/",defaults={"filename":""})
+# @app.route("/<path:filename>")
+# def index(filename):
+#     if not filename:
+#         filename = "index.html"
+#     return send_from_directory(dist_folder,filename)
+
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -54,6 +65,7 @@ payos = PayOS(
 
 # Thiết lập locale cho Việt Nam
 locale.setlocale(locale.LC_ALL, 'vi_VN.UTF-8')
+
 
 # === Hàm helper ===
 
@@ -90,6 +102,7 @@ def format_currency(amount):
   """Định dạng số tiền thành VND."""
   amount = math.floor(amount / 1000) * 1000
   return locale.currency(amount, grouping=True, symbol=True)
+
 
 # === API endpoints cho login/register ===
 
@@ -511,7 +524,6 @@ def add_pet_allergy(pet_id):
     except Exception as e:
         print(f"Lỗi thêm dị ứng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
-
 
 @app.route('/api/pets/<int:pet_id>/allergies/<int:allergy_id>', methods=['DELETE'])
 @login_required
@@ -947,8 +959,8 @@ def delete_product(product_id):
             if not product or (product['customer_id'] != session['id'] and session['role_id'] != 2):
                 return jsonify({'message': 'Bạn không có quyền xóa sản phẩm này'}), 403
 
-            # Xóa các giao dịch liên quan đến sản phẩm
-            cursor.execute('DELETE FROM transactions WHERE product_id = %s', (product_id,))
+            # Xóa sản phẩm khỏi giỏ hàng
+            cursor.execute('DELETE FROM cart WHERE product_id = %s', (product_id,))
 
             # 3. Xóa sản phẩm trong database
             cursor.execute('DELETE FROM products WHERE id = %s', (product_id,))
@@ -1196,28 +1208,27 @@ def update_cart():
         print(f"Lỗi cập nhật giỏ hàng: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-@app.route('/api/cart/checkout/', methods=['POST'])
+@app.route('/api/cart/checkout', methods=['POST'])
 @login_required
 def checkout():
+    print("session:", session)
     try:
         data = request.get_json()
-        cart_item_ids = data.get('cart_item_ids', [])
         recipient_info = data.get('recipient_info', {})
         shipping_address = data.get('shipping_address', {})
         notes = data.get('notes', '')
-
-        if not cart_item_ids:
-            return jsonify({'message': 'Vui lòng chọn sản phẩm để thanh toán'}), 400
 
         with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
             try:
                 # Bắt đầu transaction
                 cursor.execute('START TRANSACTION')
 
-                # Lấy thông tin giỏ hàng từ bảng cart
-                cart_items_query = ', '.join(['%s'] * len(cart_item_ids))
-                cursor.execute(f'SELECT * FROM cart WHERE id IN ({cart_items_query}) AND user_id = %s', (*cart_item_ids, session['id']))
+                # Lấy thông tin giỏ hàng từ bảng cart của user hiện tại
+                cursor.execute('SELECT * FROM cart WHERE user_id = %s', (session['id'],))
                 cart_items = cursor.fetchall()
+
+                if not cart_items:
+                    raise Exception('Giỏ hàng trống.')
 
                 # Tính toán tổng tiền và kiểm tra số lượng sản phẩm
                 total_amount = 0
@@ -1235,11 +1246,45 @@ def checkout():
 
                 # Tạo đơn hàng mới với trạng thái "pending" và customer_id từ products
                 cursor.execute(
-                    'INSERT INTO orders (user_id, customer_id, total_amount, shipping_address, order_date, status, notes) '
-                    'SELECT %s, customer_id, %s, %s, %s, %s, %s FROM products WHERE id = %s',
-                    (session['id'], total_amount, json.dumps(shipping_address), datetime.now(), 'pending', notes, cart_items[0]['product_id'])
+                    'INSERT INTO orders (user_id,  total_amount, order_date, status, notes) '
+                    'SELECT %s, %s, %s, %s, %s FROM products WHERE id = %s',
+                    (session['id'], total_amount, datetime.now(), 'pending', notes, cart_items[0]['product_id'])
                 )
                 order_id = cursor.lastrowid
+
+                # Lưu địa chỉ giao hàng
+                cursor.execute(
+                    'INSERT INTO orders_shipping_address (order_id, province, district, ward, street) '
+                    'VALUES (%s, %s, %s, %s, %s)',
+                    (order_id, shipping_address['province'], shipping_address['district'], shipping_address['ward'], shipping_address['street'])
+                )
+
+                # Lưu thông tin liên lạc
+                cursor.execute(
+                    'INSERT INTO orders_contacts (order_id, name, phone, email) '
+                    'VALUES (%s, %s, %s, %s)',
+                    (order_id, recipient_info['name'], recipient_info['phone'], recipient_info['email'])
+                )
+
+                # Thêm sản phẩm vào order_items
+                for item in cart_items:
+                    cursor.execute('SELECT price FROM products WHERE id = %s', (item['product_id'],))
+                    product_price = cursor.fetchone()['price']
+                    cursor.execute('INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (%s, %s, %s, %s)',
+                                   (order_id, item['product_id'], item['quantity'], product_price))
+
+                # Xóa giỏ hàng
+                cursor.execute('DELETE FROM cart WHERE user_id = %s', (session['id'],))
+
+                # Cập nhật lượt mua
+                for item in cart_items:
+                    cursor.execute('UPDATE products SET sales = sales + %s WHERE id = %s', (item['quantity'], item['product_id']))
+
+                # Cập nhật số lượng sản phẩm trong bảng products
+                for item in cart_items:
+                    cursor.execute('UPDATE products SET quantity = quantity - %s WHERE id = %s', (item['quantity'], item['product_id']))
+
+
 
                 # Tạo liên kết thanh toán PayOS
                 payment_data = PaymentData(
@@ -1267,56 +1312,56 @@ def checkout():
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
 
-@app.route('/api/payos/callback', methods=['POST'])
-def payos_callback():
-    try:
-        data = request.get_json()
-        print("Dữ liệu callback từ PayOS:", data)
-        order_code = data.get('orderCode')
-        status = data.get('status')
+# @app.route('/api/payos/callback', methods=['POST'])
+# def payos_callback():
+#     try:
+#         data = request.get_json()
+#         print("Dữ liệu callback từ PayOS:", data)
+#         order_code = data.get('orderCode')
+#         status = data.get('status')
 
-        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
-            try:
-                # Bắt đầu transaction
-                cursor.execute('START TRANSACTION')
+#         with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+#             try:
+#                 # Bắt đầu transaction
+#                 cursor.execute('START TRANSACTION')
 
-                if status == 'COMPLETED':
-                    # Cập nhật trạng thái đơn hàng
-                    cursor.execute('UPDATE orders SET status = %s WHERE id = %s', ('completed', order_code))
+#                 if status == 'COMPLETED':
+#                     # Cập nhật trạng thái đơn hàng
+#                     cursor.execute('UPDATE orders SET status = %s WHERE id = %s', ('completed', order_code))
 
-                    # Lấy thông tin đơn hàng
-                    cursor.execute('SELECT * FROM orders WHERE id = %s', (order_code,))
-                    order = cursor.fetchone()
+#                     # Lấy thông tin đơn hàng
+#                     cursor.execute('SELECT * FROM orders WHERE id = %s', (order_code,))
+#                     order = cursor.fetchone()
 
-                    # Lấy danh sách sản phẩm từ order_items
-                    cursor.execute('SELECT product_id, quantity FROM order_items WHERE order_id = %s', (order_code,))
-                    order_items = cursor.fetchall()
+#                     # Lấy danh sách sản phẩm từ order_items
+#                     cursor.execute('SELECT product_id, quantity FROM order_items WHERE order_id = %s', (order_code,))
+#                     order_items = cursor.fetchall()
 
-                    # Cập nhật số lượng sản phẩm trong kho và sales
-                    for item in order_items:
-                        cursor.execute('UPDATE products SET quantity = quantity - %s, sales = sales + %s WHERE id = %s', (item['quantity'], item['quantity'], item['product_id']))
+#                     # Cập nhật số lượng sản phẩm trong kho và sales
+#                     for item in order_items:
+#                         cursor.execute('UPDATE products SET quantity = quantity - %s, sales = sales + %s WHERE id = %s', (item['quantity'], item['quantity'], item['product_id']))
 
-                    # Xóa giỏ hàng của người dùng
-                    cursor.execute('DELETE FROM cart WHERE user_id = %s', (order['user_id'],))
+#                     # Xóa giỏ hàng của người dùng
+#                     cursor.execute('DELETE FROM cart WHERE user_id = %s', (order['user_id'],))
 
-                elif status == 'CANCELLED':
-                    # Xóa đơn hàng khi hủy thanh toán
-                    cursor.execute('DELETE FROM orders WHERE id = %s AND status = "pending"', (order_code,))
+#                 elif status == 'CANCELLED':
+#                     # Xóa đơn hàng khi hủy thanh toán
+#                     cursor.execute('DELETE FROM orders WHERE id = %s AND status = "pending"', (order_code,))
 
-                # Commit transaction
-                cursor.execute('COMMIT')
+#                 # Commit transaction
+#                 cursor.execute('COMMIT')
 
-                return jsonify({'message': 'Xử lý callback thành công'}), 200
+#                 return jsonify({'message': 'Xử lý callback thành công'}), 200
 
-            except Exception as e:
-                # Rollback transaction nếu có lỗi
-                cursor.execute('ROLLBACK')
-                print(f"Lỗi xử lý callback: {e}")
-                return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+#             except Exception as e:
+#                 # Rollback transaction nếu có lỗi
+#                 cursor.execute('ROLLBACK')
+#                 print(f"Lỗi xử lý callback: {e}")
+#                 return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
-    except Exception as e:
-        print(f"Lỗi xử lý callback: {e}")
-        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+#     except Exception as e:
+#         print(f"Lỗi xử lý callback: {e}")
+#         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
 @app.route('/api/customers/revenue', methods=['GET'])
 @login_required
@@ -1342,6 +1387,89 @@ def get_customer_revenue():
         print(f"Lỗi lấy doanh số customer: {e}")
         return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
+@app.route('/api/admin/transactions', methods=['GET'])
+@login_required
+def get_transactions():
+    try:
+        filter = request.args.get('filter', 'today')
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            # Truy vấn SQL để lấy dữ liệu giao dịch theo filter
+            if filter == 'today':
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE DATE(order_date) = CURDATE()
+                """)
+            elif filter == 'yesterday':
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE DATE(order_date) = CURDATE() - INTERVAL 1 DAY
+                """)
+            elif filter == 'this_week':
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE YEARWEEK(order_date, 1) = YEARWEEK(CURDATE(), 1)
+                """)
+            elif filter == 'last_week':
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE YEARWEEK(order_date, 1) = YEARWEEK(CURDATE(), 1) - 1
+                """)
+            elif filter == 'this_month':
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE YEAR(order_date) = YEAR(CURDATE()) AND MONTH(order_date) = MONTH(CURDATE())
+                """)
+            elif filter == 'last_month':
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE YEAR(order_date) = YEAR(CURDATE()) AND MONTH(order_date) = MONTH(CURDATE()) - 1
+                """)
+            elif filter.startswith('custom:'):
+                custom_date = filter.split(':')[1]
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                    WHERE DATE(order_date) = %s
+                """, (custom_date,))
+            else:
+                cursor.execute("""
+                    SELECT id, user_id, total_amount, order_date
+                    FROM orders
+                """)
+
+            transactions = cursor.fetchall()
+
+        return jsonify(transactions), 200
+
+    except Exception as e:
+        print(f"Lỗi lấy dữ liệu giao dịch: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
+
+
+@app.route('/api/transactions/<int:transaction_id>', methods=['GET'])
+@login_required
+def get_transaction_details(transaction_id):
+    try:
+        with mysql.connection.cursor(MySQLdb.cursors.DictCursor) as cursor:
+            cursor.execute("""
+                SELECT oi.product_id, oi.quantity, oi.price, p.name
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id = %s
+            """, (transaction_id,))
+            transaction_details = cursor.fetchall()
+
+        return jsonify({'products': transaction_details}), 200
+
+    except Exception as e:
+        print(f"Lỗi lấy chi tiết giao dịch: {e}")
+        return jsonify({'message': 'Đã có lỗi xảy ra'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

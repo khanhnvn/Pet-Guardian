@@ -1,3 +1,5 @@
+//CheckoutPage.jsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -37,36 +39,29 @@ const [shippingAddress, setShippingAddress] = useState({
 const [notes, setNotes] = useState('');
 
 useEffect(() => {
-    // Lấy selectedItems từ query parameters
-    const searchParams = new URLSearchParams(location.search);
-    const items = searchParams.get('items');
-    if (items) {
-    setSelectedItems(items.split(',').map(Number));
-    }
-
     // Gọi API để lấy thông tin giỏ hàng
     const fetchCart = async () => {
     try {
         const response = await fetch('/api/cart');
         if (!response.ok) {
-        throw new Error('Lỗi khi lấy giỏ hàng');
+            throw new Error('Lỗi khi lấy giỏ hàng');
         }
         const data = await response.json();
         setCart(data);
     } catch (error) {
         console.error('Lỗi:', error);
         toast({
-        title: 'Lỗi!',
-        description: error.message,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
+            title: 'Lỗi!',
+            description: error.message,
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
         });
     }
     };
 
     fetchCart();
-}, [location]); 
+}, []); 
 
 const handleRecipientInfoChange = (e) => {
     setRecipientInfo({ ...recipientInfo, [e.target.name]: e.target.value });
@@ -83,53 +78,58 @@ const handleNotesChange = (e) => {
 // Tính tổng giá tiền sản phẩm
 const totalPrice = useMemo(() => {
     return cart.reduce((total, item) => {
-    if (selectedItems.includes(item.cart_item_id)) {
-        const price = typeof item.price === 'string' 
-        ? parseFloat(item.price.replace(/[^0-9.-]+/g, "")) 
-        : item.price;
-        return total + price * item.quantity;
-    }
-    return total;
+        const price = typeof item.price === 'string' ? parseFloat(item.price.replace(/[^0-9.-]+/g, "")) : item.price;
+            return total + price * item.quantity;
     }, 0);
-}, [cart, selectedItems]);
+}, [cart]);
 
 const handleCheckout = async () => {
     try {
-    const response = await fetch('/api/cart/checkout', {
-        method: 'POST',
-        headers: {
-        'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-        cart_item_ids: selectedItems,
-        recipient_info: recipientInfo,
-        shipping_address: shippingAddress,
-        notes: notes,
-        })
-    });
-
-    if (response.ok) {
-        const data = await response.json();
-        window.open(data.checkoutUrl, '_self'); 
-    } else {
-        const errorData = await response.json();
-        toast({
-        title: 'Lỗi!',
-        description: errorData.message || 'Lỗi khi thanh toán.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
+        const response = await fetch('/api/cart/checkout', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+            cart_item_ids: selectedItems,
+            recipient_info: recipientInfo,
+            shipping_address: shippingAddress,
+            notes: notes,
+            })
         });
-    }
-    } catch (error) {
-    console.error('Lỗi:', error);
-    toast({
-        title: 'Lỗi!',
-        description: 'Đã có lỗi xảy ra.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-    });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.checkoutUrl) {
+                window.open(data.checkoutUrl, '_self');
+            } else {
+                toast({
+                    title: 'Lỗi!',
+                    description: 'Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.',
+                    status: 'error',
+                    duration: 3000,
+                    isClosable: true,
+                });
+            }
+        } else {
+            const errorData = await response.json();
+            toast({
+                title: 'Lỗi!',
+                description: errorData.message || 'Lỗi khi thanh toán.',
+                status: 'error',
+                duration: 3000,
+                isClosable: true,
+            });
+        }
+        } catch (error) {
+        console.error('Lỗi:', error);
+        toast({
+            title: 'Lỗi!',
+            description: 'Đã có lỗi xảy ra.',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+        });
     }
 };
 
@@ -151,19 +151,18 @@ return (
             />
 
             <OrderInfo 
-            cart={cart} 
-            selectedItems={selectedItems} 
+            cart={cart}
             totalPrice={totalPrice} 
             shippingFee={shippingFee} 
             />
 
             <FormControl mt={4}>
-            <FormLabel>Ghi chú đơn hàng:</FormLabel>
-            <Textarea value={notes} onChange={handleNotesChange} placeholder="Ghi chú đơn hàng của bạn" />
+                <FormLabel>Ghi chú đơn hàng:</FormLabel>
+                <Textarea value={notes} onChange={handleNotesChange} placeholder="Ghi chú đơn hàng của bạn" />
             </FormControl>
 
             <Button colorScheme="blue" mt={4} onClick={handleCheckout}>
-            Tiến hành thanh toán
+                Tiến hành thanh toán
             </Button>
         </VStack>
         </Container>

@@ -25,7 +25,6 @@ import { Link, useNavigate } from 'react-router-dom';
 const Cart = () => {
     const toast = useToast();
     const [cart, setCart] = useState([]);
-    const [selectedItems, setSelectedItems] = useState([]); // State lưu trữ các item được chọn
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -120,50 +119,18 @@ const Cart = () => {
             });
         }
     };
-
-    // Hàm xử lý khi checkbox thay đổi
-    useEffect(() => {
-        console.log("selectedItems đã được cập nhật:", selectedItems);
-      }, [selectedItems]); 
       
-      const handleCheckboxChange = (e, itemId) => {
-            setSelectedItems(prevSelected => {
-            if (e.target.checked) {
-                console.log("Thêm vào selectedItems:", itemId);
-                return [...prevSelected, itemId];
-            } else {
-                console.log("Xóa khỏi selectedItems:", itemId);
-                return prevSelected.filter(id => id !== itemId);
-            }
-            });
-      };
-
     // Tính toán tổng tiền của các sản phẩm được chọn
     const totalPrice = useMemo(() => {
         return cart.reduce((total, item) => {
-            if (selectedItems.includes(item.cart_item_id)) {
-                // Kiểm tra xem item.price có phải là chuỗi tiền tệ không
-                const price = typeof item.price === 'string' ? parseFloat(item.price.replace(/[^0-9.-]+/g, "")) : item.price;
+            const price = typeof item.price === 'string' ? parseFloat(item.price.replace(/[^0-9.-]+/g, "")) : item.price;
                 return total + price * item.quantity;
-            }
-            return total;
         }, 0);
-    }, [cart, selectedItems]);
+    }, [cart]);
 
     const handleCheckout = () => {
-        console.log("selectedItems trước khi chuyển hướng:", selectedItems);
-
-        if (selectedItems.length == 0) {
-            toast({
-                title: 'Lỗi!',
-                description: 'Vui lòng chọn ít nhất một sản phẩm.',
-                status: 'error',
-                duration: 3000,
-                isClosable: true,
-            });
-        } else{
-        navigate(`/checkout?items=${selectedItems.join(',')}`); 
-        }
+        navigate(`/checkout`); 
+        
     };
 
 
@@ -182,10 +149,6 @@ const Cart = () => {
                             {cart.map((item) => (
                                 <Box key={item.id} borderWidth="1px" borderRadius="lg" p={4}>
                                     <HStack>
-                                        <Checkbox 
-                                            isChecked={selectedItems.includes(item.cart_item_id)} 
-                                            onChange={(e) => handleCheckboxChange(e, item.cart_item_id)} 
-                                        />
                                         {item.images && item.images.length > 0 ? (
                                             <Image src={`/uploads/${item.images[0]}`} alt={item.name} boxSize="100px" objectFit="cover" />
                                         ) : (

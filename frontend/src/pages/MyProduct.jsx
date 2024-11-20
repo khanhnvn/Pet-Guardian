@@ -203,7 +203,7 @@ const MyProduct = () => {
                 console.error('Lỗi khi xóa sản phẩm');
                 toast({
                     title: 'Lỗi!',
-                    description: 'Lỗi khi xóa sản phẩm.',
+                    description: errorData.message || 'Lỗi khi xóa sản phẩm.',
                     status: 'error',
                     duration: 3000,
                     isClosable: true,

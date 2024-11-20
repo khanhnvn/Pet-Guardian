@@ -12,7 +12,7 @@ import PetHealthDetail from "./pages/PetHealthDetail.jsx";
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ChangePassword from './pages/ChangePassword.jsx';
 import CustomerHomePage from './pages/CustomerHomePage.jsx'; 
-import AdminHomePage from './pages/AdminHomePage.jsx'; 
+import AdminHomePage from './pages/AdminHomepage.jsx'; 
 import MyProduct from './pages/MyProduct.jsx';
 import MyService from './pages/MyService.jsx';
 import Service from './pages/Service.jsx';

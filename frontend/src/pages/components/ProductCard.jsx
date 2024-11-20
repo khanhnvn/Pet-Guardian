@@ -39,9 +39,9 @@ const ProductCard = ({ product, onAddToCart, fetchCart, setCart }) => {
                 </Text>
                 <Text>Quantity: {product.quantity}</Text>
                 <Text>Views: {product.views} - Sales: {product.sales}</Text>
-                <Text fontSize="sm" color="gray.500">
+                {/*<Text fontSize="sm" color="gray.500">
                     Đăng bởi: {product.customer_name}
-                </Text>
+                </Text>*/}
             </Box>
         </Link>    
     );
